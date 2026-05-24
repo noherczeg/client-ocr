@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- SEO Meta Tags -->
+    <title>Free Browser-Based OCR - Extract Text from Images Securely</title>
+    <meta name="description" content="Extract text from images instantly in your browser using our free, secure client-side OCR tool. No server uploads, 100% private. Supports PNG, JPG, WEBP.">
+    <meta name="keywords" content="OCR, image to text, extract text from image, browser OCR, free OCR, secure OCR, Tesseract.js, offline OCR, image converter">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="Browser OCR Tool">
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:title" content="Free Browser-Based OCR - Extract Text from Images Securely">
+    <meta property="og:description" content="Extract text from images entirely within your browser. No server uploads, ensuring 100% privacy for your sensitive documents.">
+    <meta property="og:type" content="website">
+    
+    <!-- Structured Data (JSON-LD) for SEO -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Browser-Based Client-Side OCR",
+      "operatingSystem": "Web Browser",
+      "applicationCategory": "UtilitiesApplication",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "description": "A free, secure, client-side Optical Character Recognition (OCR) tool that runs entirely in your web browser. Extracts text from images without uploading them to any server.",
+      "featureList": "Image to text conversion, offline processing, secure document scanning"
+    }
+    </script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Tesseract.js for client-side OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        stone: {
+                            50: '#faf9f6',
+                            100: '#f5f5f4',
+                            800: '#292524',
+                            900: '#1c1917',
+                        },
+                        amber: {
+                            600: '#d97706',
+                            700: '#b45309',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #faf9f6;
+            color: #292524;
+        }
+        .dropzone-active {
+            border-color: #d97706 !important;
+            background-color: #fef3c7 !important;
+        }
+        /* Custom scrollbar for textarea */
+        textarea::-webkit-scrollbar {
+            width: 8px;
+        }
+        textarea::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        textarea::-webkit-scrollbar-thumb {
+            background: #d6d3d1;
+            border-radius: 4px;
+        }
+        textarea::-webkit-scrollbar-thumb:hover {
+            background: #a8a29e;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans selection:bg-amber-200 selection:text-amber-900">
+
+    <main class="flex-grow flex flex-col items-center py-12 px-4 sm:px-6 lg:px-8 w-full max-w-4xl mx-auto">
+        
+        <header class="w-full mb-8 text-center">
+            <h1 class="text-4xl font-bold text-stone-900 tracking-tight mb-3">Client-Side Image OCR</h1>
+            <p class="text-lg text-stone-600 max-w-2xl mx-auto">
+                Extract text from images entirely within your browser. No images are uploaded to any server. Secure, fast, and private.
+            </p>
+        </header>
+
+        <section class="w-full bg-white rounded-2xl shadow-sm border border-stone-200 p-6 md:p-8 mb-6 transition-all">
+            
+            <!-- Input Area -->
+            <div id="dropzone" class="relative group flex flex-col items-center justify-center w-full h-64 border-2 border-stone-300 border-dashed rounded-xl bg-stone-50 hover:bg-stone-100 transition-colors cursor-pointer overflow-hidden">
+                
+                <!-- Reset Button -->
+                <button id="reset-btn" class="absolute top-3 right-3 z-20 hidden bg-white/90 text-stone-500 hover:text-red-600 hover:bg-red-50 rounded-full w-8 h-8 flex items-center justify-center shadow-sm border border-stone-200 transition-colors focus:outline-none text-sm font-bold" title="Clear image">
+                    &#10005;
+                </button>
+
+                <div id="dropzone-content" class="flex flex-col items-center justify-center pt-5 pb-6 text-stone-500 group-hover:text-amber-700 transition-colors z-10">
+                    <div class="text-5xl mb-4">&#128196;</div>
+                    <p class="mb-2 text-sm md:text-base font-medium">
+                        <span class="font-semibold text-amber-600">Click to upload</span> or drag and drop
+                    </p>
+                    <p class="text-xs md:text-sm text-stone-500">
+                        You can also paste an image (<kbd class="px-2 py-1 bg-stone-200 rounded text-xs font-mono">Ctrl+V</kbd> / <kbd class="px-2 py-1 bg-stone-200 rounded text-xs font-mono">Cmd+V</kbd>)
+                    </p>
+                </div>
+
+                <!-- SEO Optimized Alt text -->
+                <img id="image-preview" class="absolute inset-0 w-full h-full object-contain opacity-0 scale-95 transition-all duration-300 z-0 pointer-events-none" alt="Uploaded document or image for OCR text extraction">
+                
+                <input id="file-input" type="file" class="hidden" accept="image/png, image/jpeg, image/jpg, image/webp, image/bmp" />
+            </div>
+
+            <!-- Progress Area (Hidden initially) -->
+            <div id="progress-container" class="hidden w-full mt-6 space-y-2">
+                <div class="flex justify-between text-sm font-medium text-stone-700">
+                    <span id="progress-status">Initializing engine...</span>
+                    <span id="progress-percentage">0%</span>
+                </div>
+                <div class="w-full bg-stone-200 rounded-full h-2.5 overflow-hidden">
+                    <div id="progress-bar" class="bg-amber-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Output Area -->
+        <section class="w-full bg-white rounded-2xl shadow-sm border border-stone-200 p-6 md:p-8 flex flex-col flex-grow">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-stone-800">Extracted Text</h2>
+                <button id="copy-btn" class="flex items-center gap-2 px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <span class="text-lg">&#128203;</span> Copy Text
+                </button>
+            </div>
+            
+            <textarea id="ocr-result" class="w-full flex-grow min-h-[250px] p-4 text-stone-700 bg-stone-50 border border-stone-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none resize-y font-mono text-sm sm:text-base transition-shadow placeholder-stone-400" placeholder="Extracted text will appear here..." readonly></textarea>
+        </section>
+
+        <!-- SEO Content Section -->
+        <article class="w-full mt-8 bg-transparent p-4 sm:p-6 text-stone-700">
+            <h2 class="text-2xl font-bold text-stone-900 mb-4">How Our Free Image to Text Converter Works</h2>
+            <p class="mb-4 leading-relaxed">
+                Our <strong>browser-based OCR (Optical Character Recognition)</strong> tool allows you to easily extract text from images without the need for expensive software or privacy-invasive cloud services. By utilizing <a href="https://tesseract.projectnaptha.com/" target="_blank" rel="noopener noreferrer" class="text-amber-700 hover:text-amber-800 underline decoration-amber-300 underline-offset-2 transition-colors">Tesseract.js</a>, all image processing happens directly on your device's CPU.
+            </p>
+
+            <div class="grid md:grid-cols-2 gap-8 mt-8">
+                <div>
+                    <h3 class="text-xl font-semibold text-stone-900 mb-3">Why choose Client-Side OCR?</h3>
+                    <ul class="space-y-3">
+                        <li class="flex items-start">
+                            <span class="text-amber-600 mr-2">✓</span>
+                            <span><strong>100% Privacy & Security:</strong> Your images never leave your computer. Because there are no server uploads, sensitive documents remain completely confidential.</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-amber-600 mr-2">✓</span>
+                            <span><strong>Fast & Free:</strong> No waiting in server queues, no bandwidth limitations, and no premium subscriptions required.</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-amber-600 mr-2">✓</span>
+                            <span><strong>Easy to Use:</strong> Simply drag and drop, paste from your clipboard, or select an image file to instantly convert image to text.</span>
+                        </li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-xl font-semibold text-stone-900 mb-3">Tips for Best OCR Results</h3>
+                    <p class="mb-3 leading-relaxed">
+                        For the most accurate text extraction, ensure your uploaded images have:
+                    </p>
+                    <ul class="list-disc pl-5 space-y-1 mb-4">
+                        <li>High contrast between text and background</li>
+                        <li>Clear, standard typography</li>
+                        <li>Good resolution (not too small)</li>
+                    </ul>
+                    <p class="text-sm text-stone-500 italic">Note: Blurry images, messy handwritten notes, or heavily stylized fonts may reduce recognition accuracy.</p>
+                </div>
+            </div>
+        </article>
+
+    </main>
+
+    <footer class="w-full border-t border-stone-200 bg-stone-50 py-8 mt-auto text-center text-stone-500 text-sm">
+        <p>&copy; <script>document.write(new Date().getFullYear())</script> Free Browser OCR. All processing done securely on your local machine.</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const dropzone = document.getElementById('dropzone');
+            const fileInput = document.getElementById('file-input');
+            const dropzoneContent = document.getElementById('dropzone-content');
+            const imagePreview = document.getElementById('image-preview');
+            const progressContainer = document.getElementById('progress-container');
+            const progressStatus = document.getElementById('progress-status');
+            const progressPercentage = document.getElementById('progress-percentage');
+            const progressBar = document.getElementById('progress-bar');
+            const ocrResult = document.getElementById('ocr-result');
+            const copyBtn = document.getElementById('copy-btn');
+            const resetBtn = document.getElementById('reset-btn');
+
+            let isProcessing = false;
+            let ocrWorker = null;
+
+            // Silently pre-load the WebAssembly engine in the background.
+            // This avoids creating/destroying the engine every time, offering a massive CPU speed boost.
+            const initWorkerPromise = (async () => {
+                ocrWorker = await Tesseract.createWorker('eng', 1, {
+                    logger: m => {
+                        // Only update UI progress bar if we are actively scanning an image
+                        if (isProcessing && m.status === 'recognizing text') {
+                            const percent = Math.round(m.progress * 100);
+                            progressStatus.textContent = 'Recognizing text...';
+                            progressBar.style.width = `${percent}%`;
+                            progressPercentage.textContent = `${percent}%`;
+                        }
+                    }
+                });
+            })();
+
+            // --- UI Interaction Handlers ---
+
+            dropzone.addEventListener('click', () => {
+                if (!isProcessing) fileInput.click();
+            });
+
+            dropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                if (!isProcessing) dropzone.classList.add('dropzone-active');
+            });
+
+            dropzone.addEventListener('dragleave', () => {
+                dropzone.classList.remove('dropzone-active');
+            });
+
+            dropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropzone.classList.remove('dropzone-active');
+                if (isProcessing) return;
+                
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    handleFile(e.dataTransfer.files[0]);
+                }
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                    handleFile(e.target.files[0]);
+                }
+            });
+
+            document.addEventListener('paste', (e) => {
+                if (isProcessing) return;
+                const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                for (let index in items) {
+                    const item = items[index];
+                    if (item.kind === 'file' && item.type.startsWith('image/')) {
+                        const blob = item.getAsFile();
+                        handleFile(blob);
+                        return; // Only handle the first image pasted
+                    }
+                }
+            });
+
+            copyBtn.addEventListener('click', () => {
+                if (!ocrResult.value) return;
+                
+                ocrResult.select();
+                document.execCommand('copy');
+                
+                // Visual feedback
+                const originalText = copyBtn.innerHTML;
+                copyBtn.innerHTML = '<span class="text-lg">&#10004;</span> Copied!';
+                copyBtn.classList.replace('bg-stone-100', 'bg-green-100');
+                copyBtn.classList.replace('text-stone-700', 'text-green-800');
+                
+                setTimeout(() => {
+                    copyBtn.innerHTML = originalText;
+                    copyBtn.classList.replace('bg-green-100', 'bg-stone-100');
+                    copyBtn.classList.replace('text-green-800', 'text-stone-700');
+                }, 2000);
+            });
+
+            resetBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent opening file dialog
+                if (isProcessing) return;
+
+                // Reset visual state
+                imagePreview.src = '';
+                imagePreview.classList.remove('opacity-100', 'scale-100');
+                imagePreview.classList.add('opacity-0', 'scale-95');
+                dropzoneContent.classList.remove('opacity-0');
+                resetBtn.classList.add('hidden');
+                
+                // Clear inputs and outputs
+                fileInput.value = '';
+                ocrResult.value = '';
+                ocrResult.readOnly = true;
+                copyBtn.disabled = true;
+                progressContainer.classList.add('hidden');
+            });
+
+            // --- Core Logic ---
+
+            function handleFile(file) {
+                if (!file || !file.type.startsWith('image/')) {
+                    alert('Please provide a valid image file.');
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const imgDataUrl = e.target.result;
+                    
+                    // Show preview
+                    imagePreview.src = imgDataUrl;
+                    imagePreview.classList.remove('opacity-0', 'scale-95');
+                    imagePreview.classList.add('opacity-100', 'scale-100');
+                    dropzoneContent.classList.add('opacity-0');
+                    resetBtn.classList.remove('hidden');
+                    
+                    // Start OCR
+                    runOCR(imgDataUrl);
+                };
+                reader.readAsDataURL(file);
+            }
+
+            async function runOCR(imageSource) {
+                isProcessing = true;
+                ocrResult.value = '';
+                ocrResult.readOnly = true;
+                copyBtn.disabled = true;
+                
+                progressContainer.classList.remove('hidden');
+                progressBar.style.width = '10%';
+                progressPercentage.textContent = '0%';
+                progressStatus.textContent = 'Warming up CPU engine...';
+
+                try {
+                    // Ensure the background worker is fully loaded
+                    await initWorkerPromise;
+                    
+                    progressStatus.textContent = 'Analyzing image...';
+
+                    // Run the recognition using the persistent worker
+                    const result = await ocrWorker.recognize(imageSource);
+
+                    ocrResult.value = result.data.text;
+                    progressStatus.textContent = 'Extraction complete!';
+                    progressBar.style.width = '100%';
+                    progressPercentage.textContent = '100%';
+                    
+                    if(result.data.text.trim().length > 0) {
+                        copyBtn.disabled = false;
+                        ocrResult.readOnly = false; // Allow user to edit slightly if needed
+                    } else {
+                        ocrResult.value = "[No text recognized in the image.]";
+                    }
+
+                } catch (error) {
+                    console.error(error);
+                    progressStatus.textContent = 'Error during processing.';
+                    progressStatus.classList.add('text-red-600');
+                    progressBar.classList.replace('bg-amber-600', 'bg-red-600');
+                    ocrResult.value = `An error occurred: ${error.message}`;
+                } finally {
+                    isProcessing = false;
+                    setTimeout(() => {
+                        // Reset progress UI after a delay
+                        progressContainer.classList.add('hidden');
+                        progressStatus.classList.remove('text-red-600');
+                        progressBar.classList.replace('bg-red-600', 'bg-amber-600');
+                    }, 3000);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
